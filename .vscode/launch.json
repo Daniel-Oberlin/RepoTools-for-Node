@@ -12,11 +12,10 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/repotool.js",
-            "cwd": "/Users/Daniel/Desktop/untitled folder 4",
+            "cwd": "/Users/Daniel/Google Drive/My Drive/bin/node/repotool/.scratch",
             "args": [
                 "status"
             ]
-
         }
     ]
 }

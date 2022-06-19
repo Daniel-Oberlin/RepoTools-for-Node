@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 
+//import fs from 'fs';
+import * as fs from 'fs';
+
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
+
+import RepositoryToolApp from './RepositoryToolApp.js';
 
 const args = yargs(hideBin(process.argv))
   .command('status', 'check the status of the repo')
@@ -13,8 +18,15 @@ const args = yargs(hideBin(process.argv))
   })
   .strict()
   .demandCommand(1, 1, 'You need to specify a command')
-  .parse();
+  .parseSync();
 
 const command = args._[0];
 
-  console.log();
+let rawData = fs.readFileSync(`.repositoryManifest`);
+let manifest = JSON.parse(rawData.toString());
+
+let repoToolApp = new RepositoryToolApp();
+let a = repoToolApp.test();
+
+console.log(`Blah`);
+console.log(a.toString());
