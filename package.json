@@ -2,11 +2,9 @@
   "name": "repotool",
   "version": "1.0.0",
   "description": "",
-  "main": "repotool.js",
+  "main": "dist/repotool.js",
   "files:": [
-    "repotool.js",
-    "RepositoryTool.js",
-    "RepositoryToolApp.js"
+    "dist"
   ],
   "type": "module",
   "scripts": {

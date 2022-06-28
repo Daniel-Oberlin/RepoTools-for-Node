@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-//import fs from 'fs';
 import * as fs from 'fs';
 
 import yargs from 'yargs';
