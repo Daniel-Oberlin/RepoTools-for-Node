@@ -16,7 +16,7 @@ export default class ManifestDirectory extends ManifestObject
         this.subdirectories    = [];
     }
 
-    static fromPlainObject(obj: any, parent: ManifestDirectory | null): ManifestDirectory
+    public static fromPlainObject(obj: any, parent: ManifestDirectory | null): ManifestDirectory
     {
         let directory = new ManifestDirectory(obj.Name, parent);
 
@@ -35,5 +35,24 @@ export default class ManifestDirectory extends ManifestObject
         return directory;
     }
 
+    public toPlainObject() : any
+    {
+        let obj: any = {};
 
+        obj.Name = this.name;
+
+        obj.Files = {};
+        for (const file of this.files)
+        {
+            obj.Files[file.name] = file.toPlainObject();
+        }
+
+        obj.Subdirectories = {};
+        for (const directory of this.subdirectories)
+        {
+            obj.Subdirectories[directory.name] = directory.toPlainObject();
+        }
+
+        return obj;
+    }
 }

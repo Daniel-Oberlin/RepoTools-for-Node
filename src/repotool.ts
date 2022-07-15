@@ -21,8 +21,6 @@ const args = yargs(hideBin(process.argv))
 
 const command = args._[0];
 
-//let rawData = fs.readFileSync(`.repositoryManifest`);
-//let manifest = JSON.parse(rawData.toString());
 
 let repoToolApp = new RepositoryToolApp();
 let a = repoToolApp.test();

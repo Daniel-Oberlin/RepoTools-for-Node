@@ -27,7 +27,7 @@ export default class ManifestFile extends ManifestObject
         this.hashData           = hashData;
     }
 
-    static fromPlainObject(obj:any, parent:ManifestDirectory): ManifestFile
+    public static fromPlainObject(obj:any, parent:ManifestDirectory): ManifestFile
     {
         return new ManifestFile(
             obj.Name,
@@ -38,5 +38,21 @@ export default class ManifestFile extends ManifestObject
             obj.FileHash.HashType,
             obj.FileHash.HashData
         );
+    }
+
+    public toPlainObject(): any
+    {
+        let obj: any = {};
+
+        obj.Name = this.name;
+        obj.FileLength = this.length;
+        obj.LastModifiedUtc = this.lastModifiedUtc.toJSON();
+        obj.RegisteredUtc = this.registeredUtc.toJSON();
+
+        obj.FileHash = {}
+        obj.FileHash.HashType = this.hashType;
+        obj.FileHash.HashData = this.hashData;
+
+        return obj;
     }
 }

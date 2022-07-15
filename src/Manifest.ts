@@ -44,12 +44,33 @@ export default class Manifest
         if ('LastValidateDateUtc' in obj)
             manifest.lastValidateUtc = new Date(obj.LastValidateDateUtc);
 
-        manifest.ignoreList = obj.IgnoreList;
+        manifest.ignoreList = obj.IgnoreList.slice();
         manifest.defaultHashMethod = obj.DefaultHashMethod;
 
         manifest.rootDirectory =
             ManifestDirectory.fromPlainObject(obj.RootDirectory, null);
 
         return manifest;
+    }
+
+    public toPlainObject() : any
+    {
+        let obj: any = {};
+
+        obj.Guid = this.guid;
+        obj.InceptionDateUtc = this.inceptionUtc.toJSON();
+
+        if (this.lastUpdateUtc != null)
+            obj.LastUpdateDateUtc = this.lastUpdateUtc.toJSON();
+        
+        if (this.lastValidateUtc != null)
+            obj.LastValidateDateUtc = this.lastValidateUtc.toJSON();
+
+        obj.IgnoreList = this.ignoreList.slice();
+        obj.DefaultHashMethod = this.defaultHashMethod;
+
+        obj.RootDirectory = this.rootDirectory.toPlainObject();
+
+        return obj;
     }
 }
