@@ -11,7 +11,7 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/repotool.js",
+            "program": "${workspaceFolder}/dist/repotool.js",
             "cwd": "/Users/Daniel/Google Drive/My Drive/bin/node/repotool/.scratch",
             "args": [
                 "status"
