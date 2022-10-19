@@ -37,9 +37,9 @@ export default class ManifestDirectory extends ManifestObject
 
     public toPlainObject() : any
     {
-        let obj: any = {};
-
-        obj.Name = this.name;
+        let obj: any = {
+            'Name': this.name
+        };
 
         obj.Files = {};
         for (const file of this.files)

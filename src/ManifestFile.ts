@@ -42,6 +42,17 @@ export default class ManifestFile extends ManifestObject
 
     public toPlainObject(): any
     {
+        return {
+            'Name': this.name,
+            'FileLength' : this.length,
+            'LastModifiedUtc': this.lastModifiedUtc.toJSON(),
+            'RegisteredUtc': this.registeredUtc.toJSON(),
+            'FileHash': {
+                'HashType': this.hashType,
+                'HashData': this.hashData
+            }
+        }
+        /*
         let obj: any = {};
 
         obj.Name = this.name;
@@ -53,6 +64,6 @@ export default class ManifestFile extends ManifestObject
         obj.FileHash.HashType = this.hashType;
         obj.FileHash.HashData = this.hashData;
 
-        return obj;
+        return obj;*/
     }
 }

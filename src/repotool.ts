@@ -5,7 +5,9 @@ import * as fs from 'fs';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
-import RepositoryToolApp from './RepositoryToolApp.js';
+import Manifest from './Manifest.js';
+import RepositoryTool from './RepositoryTool.js';
+
 
 const args = yargs(hideBin(process.argv))
   .command('status', 'check the status of the repo')
@@ -21,9 +23,21 @@ const args = yargs(hideBin(process.argv))
 
 const command = args._[0];
 
+let rawData = fs.readFileSync(`.repositoryManifest`);
+let manifestObj = JSON.parse(rawData.toString());
+let manifest  = Manifest.fromPlainObject(manifestObj);
 
-let repoToolApp = new RepositoryToolApp();
-let a = repoToolApp.test();
+let tool = new RepositoryTool(manifest);
+tool.update();
 
-console.log(`Blah`);
-console.log(a.toString());
+/*
+        let jsonObj: any = manifest.toPlainObject();
+        let jsonContent = JSON.stringify(jsonObj);
+        fs.writeFile(".repositoryManifest", jsonContent, 'utf8', function (err) {
+            if (err) {
+                console.log("An error occured while writing JSON Object to File.");
+                return console.log(err);
+            }
+            console.log("JSON file has been saved.");
+        });
+*/
