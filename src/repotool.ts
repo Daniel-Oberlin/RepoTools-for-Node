@@ -28,6 +28,8 @@ let manifestObj = JSON.parse(rawData.toString());
 let manifest  = Manifest.fromPlainObject(manifestObj);
 
 let tool = new RepositoryTool(manifest);
+
+// TODO: figure out how to await at top level
 tool.update();
 
 /*

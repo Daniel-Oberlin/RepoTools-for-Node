@@ -1,11 +1,10 @@
 import * as fs from 'fs';
+import { createHash } from 'crypto';
+import { pipeline } from 'stream/promises';
 
 import Manifest from './Manifest.js';
 import ManifestDirectory from './ManifestDirectory.js';
 import ManifestObject from './ManifestObject.js';
-
-import { createHash } from 'crypto';
-
 
 export default class RepositoryTool {
 
@@ -17,15 +16,13 @@ export default class RepositoryTool {
 
     }
 
-    public update() {
+    public async update() {
 
-        this.updateRecursive(
-            '.',
-            this.manifest.rootDirectory);
-
+        await this.updateRecursive('.', this.manifest.rootDirectory);
+        
     }
 
-    protected updateRecursive(
+    protected async updateRecursive(
         currentDirectoryPath: string,
         currentManifestDirectory : ManifestDirectory) {
 
@@ -46,12 +43,10 @@ export default class RepositoryTool {
             } else if (nextDirEnt.isFile()) {
 
                 fileMap.set(nextDirEnt.name, nextDirEnt);
-                console.log(`Adding file: ${nextDirEnt.name}`)
 
             } else if (nextDirEnt.isDirectory()) {
 
                 dirMap.set(nextDirEnt.name, nextDirEnt);
-                console.log(`Adding dir: ${nextDirEnt.name}`)
 
             } else {
 
@@ -65,31 +60,47 @@ export default class RepositoryTool {
         let manifestFilesClone = currentManifestDirectory.files.slice(); 
         for (let nextManFile of manifestFilesClone) {
 
-            const filePath = `${currentDirectoryPath}/${nextManFile.name}`;
+            const nextFileDirEnt = fileMap.get(nextManFile.name);
+            if (nextFileDirEnt != undefined) {
 
-            // TODO: don't read file completely
-            const fileBuffer = fs.readFileSync(filePath);
+                const filePath = `${currentDirectoryPath}/${nextManFile.name}`;
+                const digest = await this.makeFileHash(filePath, nextManFile.hashType);
 
-            let digest = createHash('md5')
-                .update(fileBuffer)
-                .digest('base64');
-    
-            console.log(nextManFile.hashData == digest);
-            console.log(`${filePath}: ${nextManFile.hashData}, ${digest}`);
+                console.log(`${filePath}: ${nextManFile.hashData == digest}`);
+
+            } else {
+
+                // TODO: Handle missing files
+                console.log(`MISSING: ${nextManFile.name}`);
+                // TODO: Emit event
+                // TODO: Remove from manifest
+                // TODO: Add to missing files list
+            }
         }
 
         // Clone in case we modify during iteration
         let manifestDirectoriesClone = currentManifestDirectory.subdirectories.slice();
         for (let nextManDir of manifestDirectoriesClone)
         {
-            this.updateRecursive(
+            await this.updateRecursive(
                 `${currentDirectoryPath}/${nextManDir.name}`,
                 nextManDir);
         }
     }
 
-    protected ignoreFile(filename : string) : boolean
-    {
+    protected ignoreFile(filename : string) : boolean {
+
+        // TODO: fully implement
         return filename == '.repositoryManifest';
+
+    }
+
+    protected async makeFileHash(filePath : string, hashMethod : string) : Promise<string> {
+
+        const fstream = fs.createReadStream(filePath);
+        var hash = createHash(hashMethod.toLowerCase()).setEncoding('base64');
+        await pipeline(fstream, hash);
+        return hash.read();
+
     }
 }
