@@ -1,33 +1,28 @@
 import ManifestObject from './ManifestObject.js';
 import ManifestFile from './ManifestFile.js';
 
-export default class ManifestDirectory extends ManifestObject
-{
+export default class ManifestDirectory extends ManifestObject {
     public files: ManifestFile[];
     public subdirectories: ManifestDirectory[];
 
     constructor(
         name: string,
-        parent: ManifestDirectory | null)
-    {
+        parent: ManifestDirectory | null) {
         super(name, parent);
 
         this.files             = [];
         this.subdirectories    = [];
     }
 
-    public static fromPlainObject(obj: any, parent: ManifestDirectory | null): ManifestDirectory
-    {
+    public static fromPlainObject(obj: any, parent: ManifestDirectory | null): ManifestDirectory {
         let directory = new ManifestDirectory(obj.Name, parent);
 
-        for (const prop in obj.Files)
-        {
+        for (const prop in obj.Files) {
             let nextFile: any = obj.Files[prop];
             directory.files.push(ManifestFile.fromPlainObject(nextFile, directory));
         }
 
-        for (const prop in obj.Subdirectories)
-        {
+        for (const prop in obj.Subdirectories) {
             let nextDirectory: any = obj.Subdirectories[prop];
             directory.subdirectories.push(ManifestDirectory.fromPlainObject(nextDirectory, directory));
         }
@@ -35,21 +30,18 @@ export default class ManifestDirectory extends ManifestObject
         return directory;
     }
 
-    public toPlainObject() : any
-    {
+    public toPlainObject() : any {
         let obj: any = {
             'Name': this.name
         };
 
         obj.Files = {};
-        for (const file of this.files)
-        {
+        for (const file of this.files) {
             obj.Files[file.name] = file.toPlainObject();
         }
 
         obj.Subdirectories = {};
-        for (const directory of this.subdirectories)
-        {
+        for (const directory of this.subdirectories) {
             obj.Subdirectories[directory.name] = directory.toPlainObject();
         }
 

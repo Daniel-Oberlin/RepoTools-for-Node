@@ -1,23 +1,23 @@
 import ManifestObject from './ManifestObject.js';
 import ManifestDirectory from './ManifestDirectory.js';
 
-export default class ManifestFile extends ManifestObject
-{
+export default class ManifestFile extends ManifestObject {
     public length: number;
     public lastModifiedUtc: Date;
     public registeredUtc: Date;
     public hashType: string;
     public hashData: string;
 
+    protected _fileParent: ManifestDirectory;
+
     constructor(
         name: string,
-        parent: ManifestDirectory | null,
+        parent: ManifestDirectory,
         length: number,
         lastModifiedUtc: Date,
         registeredUtc: Date,
         hashType: string,
-        hashData: string)
-    {
+        hashData: string) {
         super(name, parent);
 
         this.length             = length;
@@ -25,10 +25,10 @@ export default class ManifestFile extends ManifestObject
         this.registeredUtc      = registeredUtc;
         this.hashType           = hashType;
         this.hashData           = hashData;
+        this._fileParent         = parent;
     }
 
-    public static fromPlainObject(obj:any, parent:ManifestDirectory): ManifestFile
-    {
+    public static fromPlainObject(obj:any, parent:ManifestDirectory): ManifestFile {
         return new ManifestFile(
             obj.Name,
             parent,
@@ -40,8 +40,7 @@ export default class ManifestFile extends ManifestObject
         );
     }
 
-    public toPlainObject(): any
-    {
+    public toPlainObject(): any {
         return {
             'Name': this.name,
             'FileLength' : this.length,
@@ -52,18 +51,9 @@ export default class ManifestFile extends ManifestObject
                 'HashData': this.hashData
             }
         }
-        /*
-        let obj: any = {};
+    }
 
-        obj.Name = this.name;
-        obj.FileLength = this.length;
-        obj.LastModifiedUtc = this.lastModifiedUtc.toJSON();
-        obj.RegisteredUtc = this.registeredUtc.toJSON();
-
-        obj.FileHash = {}
-        obj.FileHash.HashType = this.hashType;
-        obj.FileHash.HashData = this.hashData;
-
-        return obj;*/
+    public get fileParent() : ManifestDirectory {
+        return this._fileParent;
     }
 }

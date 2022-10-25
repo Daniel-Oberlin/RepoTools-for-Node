@@ -1,10 +1,10 @@
-import * as crypto from "crypto";
+import * as crypto from 'crypto';
 
-import ManifestDirectory from "./ManifestDirectory.js";
+import ManifestFile from './ManifestFile.js';
+import ManifestDirectory from './ManifestDirectory.js';
 
 
-export default class Manifest
-{
+export default class Manifest {
     public guid: string;
     public rootDirectory: ManifestDirectory;
     public inceptionUtc: Date;
@@ -13,15 +13,20 @@ export default class Manifest
     public ignoreList: string[];
     public defaultHashMethod: string;
 
-    private static theDefaultHashMethod: string = "MD5";
+    private static theDefaultHashMethod: string = 'MD5';
     private static theDefaultIgnoreList: string[] =
         [
-            "^\\./\\.repositoryManifest$",
-            "^\\./temp-repository/"
+            '^\\./\\.repositoryManifest$',
+            '^\\./temp-repository/'
         ];
 
-    constructor()
-    {
+    private static standardPathDelimiterString = '/';
+    private static standardManifestFileName = '.repositoryManifest';
+    private static defaultManifestStandardFilePath = '.' +
+        this.standardPathDelimiterString +
+        this.standardManifestFileName;
+
+    constructor() {
         this.guid              = crypto.randomUUID();
         this.rootDirectory     = new ManifestDirectory(".", null);
         this.inceptionUtc      = new Date();
@@ -31,8 +36,7 @@ export default class Manifest
         this.defaultHashMethod = Manifest.theDefaultHashMethod;
     }
 
-    public static fromPlainObject(obj: any) : Manifest
-    {
+    public static fromPlainObject(obj: any) : Manifest {
         let manifest = new Manifest();
 
         manifest.guid = obj.Guid;
@@ -53,8 +57,7 @@ export default class Manifest
         return manifest;
     }
 
-    public toPlainObject() : any
-    {
+    public toPlainObject() : any {
         let obj: any = {};
 
         obj.Guid = this.guid;
@@ -72,5 +75,23 @@ export default class Manifest
         obj.RootDirectory = this.rootDirectory.toPlainObject();
 
         return obj;
+    }
+
+	// Make a standard UNIX-style relative path, which will not
+	// vary across platforms.
+    public static makeStandardFilePathString(manFile : ManifestFile) : string {
+        return this.makeStandardDirectoryPathString(manFile.fileParent) + manFile.name;
+
+    }
+
+    // Make a standard UNIX-style relative path, which will not
+	// vary across platforms.
+    public static makeStandardDirectoryPathString(manDirectory : ManifestDirectory) : string {
+        let pathString = manDirectory.name + this.standardPathDelimiterString;
+
+        let parent = manDirectory.parent;
+        if (parent != null) pathString = this.makeStandardDirectoryPathString(parent) + pathString;
+
+        return pathString;
     }
 }
