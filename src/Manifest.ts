@@ -1,7 +1,9 @@
 import * as crypto from 'crypto';
+import * as path from 'path';
 
 import ManifestFile from './ManifestFile.js';
 import ManifestDirectory from './ManifestDirectory.js';
+import ManifestObject from './ManifestObject.js';
 
 
 export default class Manifest {
@@ -14,16 +16,15 @@ export default class Manifest {
     public defaultHashMethod: string;
 
     private static theDefaultHashMethod: string = 'MD5';
+    private static theDateTimeComparisonToleranceInMilliseconds = 2000;
     private static theDefaultIgnoreList: string[] =
         [
             '^\\./\\.repositoryManifest$',
             '^\\./temp-repository/'
         ];
 
-    private static standardPathDelimiterString = '/';
     private static standardManifestFileName = '.repositoryManifest';
-    private static defaultManifestStandardFilePath = '.' +
-        this.standardPathDelimiterString +
+    private static defaultManifestStandardFilePath = './' +
         this.standardManifestFileName;
 
     constructor() {
@@ -36,7 +37,7 @@ export default class Manifest {
         this.defaultHashMethod = Manifest.theDefaultHashMethod;
     }
 
-    public static fromPlainObject(obj: any) : Manifest {
+    public static fromPlainObject(obj: any): Manifest {
         let manifest = new Manifest();
 
         manifest.guid = obj.Guid;
@@ -79,19 +80,49 @@ export default class Manifest {
 
 	// Make a standard UNIX-style relative path, which will not
 	// vary across platforms.
-    public static makeStandardFilePathString(manFile : ManifestFile) : string {
+    public static makeStandardFilePathString(manFile: ManifestFile) : string {
+
         return this.makeStandardDirectoryPathString(manFile.fileParent) + manFile.name;
 
     }
 
     // Make a standard UNIX-style relative path, which will not
 	// vary across platforms.
-    public static makeStandardDirectoryPathString(manDirectory : ManifestDirectory) : string {
-        let pathString = manDirectory.name + this.standardPathDelimiterString;
+    public static makeStandardDirectoryPathString(manDirectory: ManifestDirectory) : string {
+
+        let pathString = manDirectory.name + '/';
 
         let parent = manDirectory.parent;
         if (parent != null) pathString = this.makeStandardDirectoryPathString(parent) + pathString;
 
         return pathString;
+
+    }
+
+    public static makeNativeFilePathString(manFile: ManifestFile) : string {
+
+        return path.resolve(this.makeStandardFilePathString(manFile));
+   
+    }
+
+    public static makeNativeDirectoryPathString(manDir: ManifestDirectory) : string {
+
+        return path.resolve(this.makeStandardDirectoryPathString(manDir));
+   
+    }
+
+	// For various reasons, we tolerate up to two seconds difference between
+    // times recorded in the filesystem and the manifest.
+	public static compareDatesWithTolerance(date1:Date, date2:Date):boolean {
+
+		return Math.abs(date1.getTime() - date2.getTime()) <=
+            this.theDateTimeComparisonToleranceInMilliseconds;
+
+	}
+
+    public static getDefaultHashMethod():string {
+
+        return this.theDefaultHashMethod;
+
     }
 }

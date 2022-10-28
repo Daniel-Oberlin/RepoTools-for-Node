@@ -8,17 +8,23 @@ import ManifestFile from './ManifestFile.js';
 
 export default class RepositoryTool {
 
-    public showProgress : boolean = true;
+    public showProgress: boolean = true;
+    public doUpdate: boolean = false;
+    public alwaysCheckHash: boolean = false;
+    public makeNewHash: boolean = false;
+    public backDate: boolean = false;
 
-    public newFiles : ManifestFile[] = [];
-    public changedFiles : ManifestFile[] = [];
-    public missingFiles : ManifestFile[] = [];
-    public lastModifiedDateFiles : ManifestFile[] = [];
-    public errorFiles : ManifestFile[] = [];
-    public ignoredFiles : ManifestFile[] = [];
-    public newlyIgnoredFiles : ManifestFile[] = [];
+    public fileCheckedCount: number = 0;
 
-    protected manifest : Manifest;
+    public newFiles: ManifestFile[] = [];
+    public changedFiles: ManifestFile[] = [];
+    public missingFiles: ManifestFile[] = [];
+    public lastModifiedDateFiles: ManifestFile[] = [];
+    public errorFiles: ManifestFile[] = [];
+    public ignoredFiles: ManifestFile[] = [];
+    public newlyIgnoredFiles: ManifestFile[] = [];
+
+    protected manifest: Manifest;
 
     /*
     movedFiles = new HashMap<FileHash,MovedFileSet>();
@@ -26,20 +32,38 @@ export default class RepositoryTool {
     duplicateFiles = new HashMap<FileHash, ArrayList<ManifestFileInfo>>();
     */
 
-    public newFilesForGroom : string[] = [];
-    public ignoredFilesForGroom : string[] = [];
+    public newFilesForGroom: string[] = [];
+    public ignoredFilesForGroom: string[] = [];
 
-    constructor(manifest : Manifest) {
+    constructor(manifest: Manifest) {
 
         this.manifest = manifest;
 
     }
 
+    public clear()
+	{
+		this.fileCheckedCount = 0;
+		
+        this.newlyIgnoredFiles = [];
+        /*
+		newFiles.clear();
+		newFilesForGroom.clear();
+		changedFiles.clear();
+		missingFiles.clear();
+		lastModifiedDateFiles.clear();
+		errorFiles.clear();
+		ignoredFiles.clear();
+		ignoredFilesForGroom.clear();
+		movedFiles.clear();
+		movedFileOrder.clear();
+		duplicateFiles.clear();
+        */
+	}
+
     public async update() {
 
-        /*
-        clear();
-        */
+        this.clear();
 
         await this.updateRecursive('.', this.manifest.rootDirectory);
 
@@ -60,21 +84,25 @@ export default class RepositoryTool {
     }
 
     protected async updateRecursive(
-        currentDirectoryPath: string | null,
-        currentManifestDirectory : ManifestDirectory) {
+        currentNativeDirectoryPath: string | null,
+        currentManifestDirectory: ManifestDirectory) {
+
+        //
+        // TODO: Break major sections into methods
+        //
 
         // Setup data for current directory as it exists in the file system,
 		// and attempt to load all of the files and sub-directories for this
 		// directory into these maps.
-        const fileMap : Map<string, fs.Dirent> = new Map();
-        const dirMap : Map<string, fs.Dirent> = new Map();
+        const fileSet: Set<string> = new Set();
+        const dirSet: Set<string> = new Set();
 
-        if (currentDirectoryPath != null)
+        if (currentNativeDirectoryPath != null)
         {
-            let dir : fs.Dir | null; 
+            let dir: fs.Dir | null; 
             try {
 
-                dir = fs.opendirSync(currentDirectoryPath);
+                dir = fs.opendirSync(currentNativeDirectoryPath);
 
             } catch (error) {
 
@@ -82,29 +110,10 @@ export default class RepositoryTool {
                 
                 if (this.ignoreFile(dirPath)) {
 
-					// This was implemented primarily to allow the user to
-					// silence the process of skipping over inaccessible
-					// system directories by ignoring them.  For example,
-					// in some cases the "$RECYCLE BIN" under Windows
-					// is not accessible and will generate an error.  The
-					// user can now add such directories to the ignore list
-					// and they will be silently ignored.  The special
-					// message for showProgress alerts the user that the
-					// directory is actually being skipped altogether
-					// since it can't be accessed.  The only significant
-					// implication of this is that the ignored files won't
-					// be enumerated and counted as being ignored.
-					if (this.showProgress) {
+					this.writeLine(`${dirPath} [IGNORED DIRECTORY AND CANNOT ACCESS]`);
 
-                        // Only show this if requested since the directory is ignored
-						this.writeLine(`${dirPath} [IGNORED DIRECTORY AND CANNOT ACCESS]`);
+				} else {
 
-					}
-				}
-				else
-				{
-
-                    // Always show this because it is an error and probably unexpected
 					this.writeLine(`${dirPath} [ERROR: CANNOT ACCESS]`, true);
 
 				}
@@ -129,11 +138,11 @@ export default class RepositoryTool {
 
                 } else if (nextDirEnt.isFile()) {
 
-                    fileMap.set(normalizedName, nextDirEnt);
+                    fileSet.add(normalizedName);
 
                 } else if (nextDirEnt.isDirectory()) {
 
-                    dirMap.set(normalizedName, nextDirEnt);
+                    dirSet.add(normalizedName);
 
                 } else {
 
@@ -145,87 +154,221 @@ export default class RepositoryTool {
             dir.close();
         }
 
-
         //
-        // Iterate through existing manifest entries
+        // Iterate through existing manifest file entries in this directory
         //
 
         // Clone in case we modify during iteration
         let manifestFilesClone = currentManifestDirectory.files.slice(); 
         for (let nextManFile of manifestFilesClone) {
 
-            this.writeLine(`NEXTFILE: ${Manifest.makeStandardFilePathString(nextManFile)}`);
-            const nextFileDirEnt = fileMap.get(nextManFile.name);
-            if (nextFileDirEnt != undefined) {
+            let filePath = Manifest.makeStandardFilePathString(nextManFile);
+            this.write(filePath);
 
-                const filePath = `${currentDirectoryPath}/${nextManFile.name}`;
-                const digest = await this.makeFileHash(filePath, nextManFile.hashType);
+            if (fileSet.has(nextManFile.name)) {
 
-                this.writeLine(`${filePath}: ${nextManFile.hashData == digest}`);
+                this.fileCheckedCount++;
+                const nextFileStat = fs.statSync(
+                    Manifest.makeNativeFilePathString(nextManFile));
 
-            } else {
+                if (this.ignoreFile(filePath)) {
 
-                // TODO: Handle missing files
-                this.writeLine(`MISSING: ${nextManFile.name}`);
-                // TODO: Emit event
-                // TODO: Remove from manifest
-                // TODO: Add to missing files list
-            }
+                    this.write(' [NEWLY IGNORED]');
+
+                    // Remove the file
+                    currentManifestDirectory.files.splice(
+                        currentManifestDirectory.files.indexOf(nextManFile), 1);
+                
+                    this.newlyIgnoredFiles.push(nextManFile);
+
+                } else if (nextManFile.length != nextFileStat.size &&
+                    this.doUpdate == false &&
+                    this.alwaysCheckHash == false) {
+
+                    // Don't compute hash under these conditions
+
+                    this.write(' [DIFFERENT]');
+                    this.changedFiles.push(nextManFile);
+
+                } else if (this.alwaysCheckHash == true ||
+					this.makeNewHash == true ||
+					nextManFile.hashData == '' ||
+					Manifest.compareDatesWithTolerance(
+                        new Date(nextFileStat.mtimeMs),
+						nextManFile.lastModifiedUtc) == false ||
+					nextFileStat.size != nextManFile.length) {
+
+                    // Compute the hash under these conditions
+
+                    let exception:any;
+                    let checkHash:string = '';
+
+                    try {
+
+                        checkHash = await this.computeFileHash(nextManFile);
+
+                    } catch (ex) {
+
+                        exception = ex;
+
+                    }
+
+                    if (exception != null) {
+
+                        this.writeLine(' [ERROR]');
+                        this.writeLine(exception.toString());
+                        
+                        this.errorFiles.push(nextManFile);
+
+                    } else {
+
+                        if (nextManFile.hashData == '') {
+
+                            this.write(' [EMPTY HASH IN MANIFEST]');
+                            this.changedFiles.push(nextManFile);
+
+                        } else if (checkHash != nextManFile.hashData) {
+
+                            this.write(' [DIFFERENT]');
+                            this.changedFiles.push(nextManFile);
+
+                        } else {
+
+                            if (Manifest.compareDatesWithTolerance(
+                                new Date(nextFileStat.mtimeMs),
+                                    nextManFile.lastModifiedUtc) == false)
+                            {
+                                this.write(' [LAST MODIFIED DATE]');
+                                this.lastModifiedDateFiles.push(nextManFile);
+                            
+                                if (this.backDate) {
+                                    
+                                    // Update last modified date
+                                    fs.utimesSync(
+                                        Manifest.makeNativeFilePathString(nextManFile),
+                                        new Date(nextFileStat.atimeMs),
+                                        nextManFile.lastModifiedUtc);
+                                    
+                                }
+                            }
+                        }
+                    }
+
+                    let newHash = checkHash;
+
+                    if (this.makeNewHash) {
+
+                        try {
+
+                            nextManFile.hashType = this.manifest.defaultHashMethod;
+                            nextManFile.hashData = '';
+
+                            newHash = await this.computeFileHash(nextManFile);
+
+                        } catch (ex: any) {
+
+                            this.writeLine(" [ERROR MAKING NEW HASH]");
+                            if (ex != null)this.writeLine(ex.toString());
+                            this.errorFiles.push(nextManFile);
+                        }
+
+                    }
+
+                    // Update hash, last modified date and size accordingly
+                    nextManFile.hashData = newHash;
+                    
+                    nextManFile.lastModifiedUtc =
+                        new Date(nextFileStat.mtimeMs);
+                    
+                    nextManFile.length = nextFileStat.size;
+
+                } else {
+
+					this.write(' [SKIPPED]');
+
+				}
+
+			} else {
+
+				this.write(' [MISSING]');
+
+                // Remove the file
+                currentManifestDirectory.files.splice(
+                    currentManifestDirectory.files.indexOf(nextManFile), 1);
+
+				this.missingFiles.push(nextManFile);
+
+			}
+			
+			this.writeLine('');
+
         }
-
 
         //
         // Recurse looking for directories in manifest
         //
 
         // Clone in case we modify during iteration
-        // TODO: Finish this section
-        let manifestDirectoriesClone = currentManifestDirectory.subdirectories.slice();
-        for (let nextManDir of manifestDirectoriesClone)
-        {
-            await this.updateRecursive(
-                `${currentDirectoryPath}/${nextManDir.name}`,
-                nextManDir);
-        }
+        let manifestDirectoriesClone = currentManifestDirectory.subdirectories.slice(); 
+        for (let nextManDir of manifestDirectoriesClone) {
 
+            let dirPath = Manifest.makeNativeDirectoryPathString(nextManDir);
+            
+            this.updateRecursive(
+                dirPath,
+                nextManDir);
+            
+            if (nextManDir.isEmpty())
+            {
+                // Remove the subdirectory
+                currentManifestDirectory.subdirectories.splice(
+                    currentManifestDirectory.subdirectories.indexOf(nextManDir), 1);
+            }
+
+        }
 
         //
         // Look for new files in this directory
         //
 
-
         //
         // Recurse looking for new directories
         //
+
     }
 
-    protected message = "";
+    protected message = '';
     protected write(message: string) {
 
         this.message += message;
 
     }
 
-    protected writeLine(message: string = "", force: boolean = false) {
+    protected writeLine(message: string = '', force: boolean = false) {
 
         this.write(message);
-        if (this.showProgress) console.log(message);
-        this.message = "";
+        if (this.showProgress || force) console.log(this.message);
+        this.message = '';
 
     }
 
-    protected ignoreFile(filename : string) : boolean {
+    protected ignoreFile(filename: string): boolean {
 
         // TODO: fully implement
         return filename == '.repositoryManifest';
 
     }
 
-    protected async makeFileHash(filePath : string, hashMethod : string) : Promise<string> {
+    protected async computeFileHash(manFile: ManifestFile): Promise<string> {
 
-        const fstream = fs.createReadStream(filePath);
-        var hash = createHash(hashMethod.toLowerCase()).setEncoding('base64');
-        await pipeline(fstream, hash);
+        const filePath = Manifest.makeNativeFilePathString(manFile);
+        const fileStream = fs.createReadStream(filePath);
+
+        const hashType = (manFile.hashType != '' ? manFile.hashType :
+            Manifest.getDefaultHashMethod()).toLowerCase();
+
+        const hash = createHash(hashType).setEncoding('base64');
+        await pipeline(fileStream, hash);
         return hash.read();
 
     }

@@ -1,7 +1,9 @@
 import ManifestObject from './ManifestObject.js';
 import ManifestFile from './ManifestFile.js';
 
+
 export default class ManifestDirectory extends ManifestObject {
+
     public files: ManifestFile[];
     public subdirectories: ManifestDirectory[];
 
@@ -15,6 +17,7 @@ export default class ManifestDirectory extends ManifestObject {
     }
 
     public static fromPlainObject(obj: any, parent: ManifestDirectory | null): ManifestDirectory {
+
         let directory = new ManifestDirectory(obj.Name, parent);
 
         for (const prop in obj.Files) {
@@ -30,7 +33,8 @@ export default class ManifestDirectory extends ManifestObject {
         return directory;
     }
 
-    public toPlainObject() : any {
+    public toPlainObject(): any {
+        
         let obj: any = {
             'Name': this.name
         };
@@ -46,5 +50,10 @@ export default class ManifestDirectory extends ManifestObject {
         }
 
         return obj;
+    }
+
+    public isEmpty(): boolean {
+
+        return this.files.length == 0 && this.subdirectories.length == 0;
     }
 }
