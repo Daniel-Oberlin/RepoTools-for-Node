@@ -87,18 +87,41 @@ export default class RepositoryTool {
         currentNativeDirectoryPath: string | null,
         currentManifestDirectory: ManifestDirectory) {
 
-        //
-        // TODO: Break major sections into methods
-        //
-
         // Setup data for current directory as it exists in the file system,
 		// and attempt to load all of the files and sub-directories for this
 		// directory into these maps.
         const fileSet: Set<string> = new Set();
         const dirSet: Set<string> = new Set();
 
-        if (currentNativeDirectoryPath != null)
-        {
+        this.populateFileAndDirSets(
+            currentNativeDirectoryPath,
+            currentManifestDirectory,
+            fileSet,
+            dirSet);
+            
+        await this.updateFilesFromManifestDirectory(
+            currentManifestDirectory,
+            fileSet);
+
+        await this.updateDirectoriesFromManifestDirectory(
+            currentManifestDirectory,
+            dirSet);
+
+        // TODO: Look for new files in this directory
+
+        // TODO: Recurse looking for new directories
+
+    }
+
+
+    protected populateFileAndDirSets(
+        currentNativeDirectoryPath:string | null,
+        currentManifestDirectory:ManifestDirectory,
+        fileSet: Set<string>,
+        dirSet: Set<string>) {
+
+        if (currentNativeDirectoryPath != null) {
+
             let dir: fs.Dir | null; 
             try {
 
@@ -110,26 +133,26 @@ export default class RepositoryTool {
                 
                 if (this.ignoreFile(dirPath)) {
 
-					this.writeLine(`${dirPath} [IGNORED DIRECTORY AND CANNOT ACCESS]`);
+                    this.writeLine(`${dirPath} [IGNORED DIRECTORY AND CANNOT ACCESS]`);
 
-				} else {
+                } else {
 
-					this.writeLine(`${dirPath} [ERROR: CANNOT ACCESS]`, true);
+                    this.writeLine(`${dirPath} [ERROR: CANNOT ACCESS]`, true);
 
-				}
-				
+                }
+                
                 // TODO: Consider removing files in and below this directory
                 // from the manifest like we do for other kinds of missing
                 // files.
 
-				return;
+                return;
             }
 
             let nextDirEnt: fs.Dirent | null = null;
             while ((nextDirEnt = dir.readSync()) != null) {
 
                 // We use form C because that's what we chose with the original
-				// .NET version because it is the default for that platform.
+                // .NET version because it is the default for that platform.
                 const normalizedName = nextDirEnt.name.normalize('NFC');
 
                 if (this.ignoreFile(normalizedName) == true) {
@@ -153,10 +176,11 @@ export default class RepositoryTool {
 
             dir.close();
         }
+    }
 
-        //
-        // Iterate through existing manifest file entries in this directory
-        //
+    protected async updateFilesFromManifestDirectory(
+        currentManifestDirectory: ManifestDirectory,
+        fileSet: Set<string>) {
 
         // Clone in case we modify during iteration
         let manifestFilesClone = currentManifestDirectory.files.slice(); 
@@ -181,6 +205,7 @@ export default class RepositoryTool {
                 
                     this.newlyIgnoredFiles.push(nextManFile);
 
+                // TODO: consider putting conditional test logic into method
                 } else if (nextManFile.length != nextFileStat.size &&
                     this.doUpdate == false &&
                     this.alwaysCheckHash == false) {
@@ -190,6 +215,7 @@ export default class RepositoryTool {
                     this.write(' [DIFFERENT]');
                     this.changedFiles.push(nextManFile);
 
+                // TODO: consider putting conditional test logic into method
                 } else if (this.alwaysCheckHash == true ||
 					this.makeNewHash == true ||
 					nextManFile.hashData == '' ||
@@ -304,36 +330,40 @@ export default class RepositoryTool {
 
         }
 
-        //
-        // Recurse looking for directories in manifest
-        //
+    }
+
+    protected async updateDirectoriesFromManifestDirectory(
+        currentManifestDirectory: ManifestDirectory,
+        dirSet: Set<string>) {
 
         // Clone in case we modify during iteration
         let manifestDirectoriesClone = currentManifestDirectory.subdirectories.slice(); 
         for (let nextManDir of manifestDirectoriesClone) {
 
-            let dirPath = Manifest.makeNativeDirectoryPathString(nextManDir);
-            
-            this.updateRecursive(
-                dirPath,
-                nextManDir);
-            
-            if (nextManDir.isEmpty())
-            {
+            let dirExists = false;
+            if (dirSet.has(nextManDir.name)) {
+
+                dirExists = true;
+                let dirPath = Manifest.makeNativeDirectoryPathString(nextManDir);
+                
+                await this.updateRecursive(
+                    dirPath,
+                    nextManDir);
+
+            }
+                
+            if (nextManDir.isEmpty() || dirExists == false) {
+
                 // Remove the subdirectory
                 currentManifestDirectory.subdirectories.splice(
                     currentManifestDirectory.subdirectories.indexOf(nextManDir), 1);
+
+                // TODO: Address the fact that missingFiles isn't updated
+                // do we need to be tracking missingFiles for this?
+
             }
 
         }
-
-        //
-        // Look for new files in this directory
-        //
-
-        //
-        // Recurse looking for new directories
-        //
 
     }
 
