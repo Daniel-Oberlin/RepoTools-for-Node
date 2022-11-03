@@ -2,7 +2,8 @@ import ManifestObject from './ManifestObject.js';
 import ManifestDirectory from './ManifestDirectory.js';
 
 export default class ManifestFile extends ManifestObject {
-    public length: number;
+
+    public length: number = 0;
     public lastModifiedUtc: Date;
     public registeredUtc: Date;
     public hashType: string;
@@ -13,11 +14,11 @@ export default class ManifestFile extends ManifestObject {
     constructor(
         name: string,
         parent: ManifestDirectory,
-        length: number,
-        lastModifiedUtc: Date,
-        registeredUtc: Date,
-        hashType: string,
-        hashData: string) {
+        length: number = 0,
+        lastModifiedUtc: Date = new Date(0),
+        registeredUtc: Date = new Date(0),
+        hashType: string = "",
+        hashData: string = "") {
         super(name, parent);
 
         this.length             = length;

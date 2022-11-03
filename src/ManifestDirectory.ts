@@ -41,7 +41,7 @@ export default class ManifestDirectory extends ManifestObject {
 
     public toPlainObject(): any {
 
-        let obj: any = {
+        const obj: any = {
             'Name': this.name
         };
 
