@@ -107,7 +107,9 @@ export default class RepositoryTool {
             currentManifestDirectory,
             dirSet);
 
-        // TODO: Look for new files in this directory
+        await this.findNewFilesInDirectory(
+            currentManifestDirectory,
+            fileSet);
 
         // TODO: Recurse looking for new directories
 
@@ -183,13 +185,13 @@ export default class RepositoryTool {
         fileSet: Set<string>) {
 
         // Clone in case we modify during iteration
-        let manifestFilesClone = currentManifestDirectory.files.slice(); 
-        for (let nextManFile of manifestFilesClone) {
+        let manifestFilesClone = new Map(currentManifestDirectory.files);
+        for (let [name, nextManFile] of manifestFilesClone) {
 
             let filePath = Manifest.makeStandardFilePathString(nextManFile);
             this.write(filePath);
 
-            if (fileSet.has(nextManFile.name)) {
+            if (fileSet.has(name)) {
 
                 this.fileCheckedCount++;
                 const nextFileStat = fs.statSync(
@@ -199,10 +201,7 @@ export default class RepositoryTool {
 
                     this.write(' [NEWLY IGNORED]');
 
-                    // Remove the file
-                    currentManifestDirectory.files.splice(
-                        currentManifestDirectory.files.indexOf(nextManFile), 1);
-                
+                    currentManifestDirectory.files.delete(name);
                     this.newlyIgnoredFiles.push(nextManFile);
 
                 // TODO: consider putting conditional test logic into method
@@ -317,11 +316,7 @@ export default class RepositoryTool {
 			} else {
 
 				this.write(' [MISSING]');
-
-                // Remove the file
-                currentManifestDirectory.files.splice(
-                    currentManifestDirectory.files.indexOf(nextManFile), 1);
-
+                currentManifestDirectory.files.delete(name);
 				this.missingFiles.push(nextManFile);
 
 			}
@@ -337,11 +332,11 @@ export default class RepositoryTool {
         dirSet: Set<string>) {
 
         // Clone in case we modify during iteration
-        let manifestDirectoriesClone = currentManifestDirectory.subdirectories.slice(); 
-        for (let nextManDir of manifestDirectoriesClone) {
+        let manifestDirectoriesClone = new Map(currentManifestDirectory.subdirectories); 
+        for (let [name, nextManDir] of manifestDirectoriesClone) {
 
             let dirExists = false;
-            if (dirSet.has(nextManDir.name)) {
+            if (dirSet.has(name)) {
 
                 dirExists = true;
                 let dirPath = Manifest.makeNativeDirectoryPathString(nextManDir);
@@ -354,9 +349,7 @@ export default class RepositoryTool {
                 
             if (nextManDir.isEmpty() || dirExists == false) {
 
-                // Remove the subdirectory
-                currentManifestDirectory.subdirectories.splice(
-                    currentManifestDirectory.subdirectories.indexOf(nextManDir), 1);
+                currentManifestDirectory.subdirectories.delete(name);
 
                 // TODO: Address the fact that missingFiles isn't updated
                 // do we need to be tracking missingFiles for this?
@@ -364,6 +357,14 @@ export default class RepositoryTool {
             }
 
         }
+
+    }
+
+    protected async findNewFilesInDirectory(
+        currentManifestDirectory: ManifestDirectory,
+        fileSet: Set<string>) {
+
+            // TODO
 
     }
 

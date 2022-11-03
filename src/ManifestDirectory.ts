@@ -4,48 +4,54 @@ import ManifestFile from './ManifestFile.js';
 
 export default class ManifestDirectory extends ManifestObject {
 
-    public files: ManifestFile[];
-    public subdirectories: ManifestDirectory[];
+    public files: Map<string, ManifestFile>;
+    public subdirectories: Map<string, ManifestDirectory>;
 
     constructor(
         name: string,
         parent: ManifestDirectory | null) {
         super(name, parent);
 
-        this.files             = [];
-        this.subdirectories    = [];
+        this.files             = new Map();
+        this.subdirectories    = new Map();
     }
 
     public static fromPlainObject(obj: any, parent: ManifestDirectory | null): ManifestDirectory {
 
-        let directory = new ManifestDirectory(obj.Name, parent);
+        const directory = new ManifestDirectory(obj.Name, parent);
 
         for (const prop in obj.Files) {
-            let nextFile: any = obj.Files[prop];
-            directory.files.push(ManifestFile.fromPlainObject(nextFile, directory));
+            const nextFilePlainObj: any = obj.Files[prop];
+            const nextFileManifestObj =
+                ManifestFile.fromPlainObject(nextFilePlainObj, directory);
+
+            directory.files.set(nextFileManifestObj.name, nextFileManifestObj);
         }
 
         for (const prop in obj.Subdirectories) {
-            let nextDirectory: any = obj.Subdirectories[prop];
-            directory.subdirectories.push(ManifestDirectory.fromPlainObject(nextDirectory, directory));
+            const nextDirectoryPlainObj: any = obj.Subdirectories[prop];
+            const nextDirectoryManifestObj: ManifestDirectory =
+                ManifestDirectory.fromPlainObject(nextDirectoryPlainObj, directory);
+
+            directory.subdirectories.set(nextDirectoryManifestObj.name, nextDirectoryManifestObj);
         }
 
         return directory;
     }
 
     public toPlainObject(): any {
-        
+
         let obj: any = {
             'Name': this.name
         };
 
         obj.Files = {};
-        for (const file of this.files) {
+        for (const [name, file] of this.files) {
             obj.Files[file.name] = file.toPlainObject();
         }
 
         obj.Subdirectories = {};
-        for (const directory of this.subdirectories) {
+        for (const [name, directory] of this.subdirectories) {
             obj.Subdirectories[directory.name] = directory.toPlainObject();
         }
 
@@ -54,6 +60,6 @@ export default class ManifestDirectory extends ManifestObject {
 
     public isEmpty(): boolean {
 
-        return this.files.length == 0 && this.subdirectories.length == 0;
+        return this.files.size == 0 && this.subdirectories.size == 0;
     }
 }
