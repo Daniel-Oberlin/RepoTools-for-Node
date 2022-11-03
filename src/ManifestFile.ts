@@ -3,7 +3,7 @@ import ManifestDirectory from './ManifestDirectory.js';
 
 export default class ManifestFile extends ManifestObject {
 
-    public length: number = 0;
+    public length: number;
     public lastModifiedUtc: Date;
     public registeredUtc: Date;
     public hashType: string;
