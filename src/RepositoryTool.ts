@@ -112,7 +112,9 @@ export default class RepositoryTool {
             currentManifestDirectory,
             fileSet);
 
-        // TODO: Recurse looking for new directories
+        await this.findNewSubdirectories(
+            currentManifestDirectory,
+            dirSet);
 
     }
 
@@ -366,105 +368,139 @@ export default class RepositoryTool {
         currentManifestDirectory: ManifestDirectory,
         fileSet: Set<string>) {
 
-            for (const nextFileName of fileSet) {
+        for (const nextFileName of fileSet) {
 
-                if (currentManifestDirectory.files.has(nextFileName) == false) {
+            if (currentManifestDirectory.files.has(nextFileName) == false) {
 
-                    const newManFile = new ManifestFile(
-                        nextFileName,
-                        currentManifestDirectory);
+                const newManFile = new ManifestFile(
+                    nextFileName,
+                    currentManifestDirectory);
 
-                    newManFile.registeredUtc = new Date();
+                newManFile.registeredUtc = new Date();
 
-                    const standardFilePath =
-                        Manifest.makeStandardFilePathString(newManFile);
+                const standardFilePath =
+                    Manifest.makeStandardFilePathString(newManFile);
 
-                    const nativeFilePath =
-                        Manifest.makeNativeFilePathString(newManFile);
+                const nativeFilePath =
+                    Manifest.makeNativeFilePathString(newManFile);
 
-                    this.write(standardFilePath);
+                this.write(standardFilePath);
 
-                    if (this.ignoreFile(standardFilePath)) {
+                if (this.ignoreFile(standardFilePath)) {
 
-                        this.ignoredFiles.push(newManFile);
+                    this.ignoredFiles.push(newManFile);
 
-                        // Don't groom the manifest file!
-                        if (this.isManifestFile(standardFilePath) == false) {
-                            this.ignoredFilesForGroom.push(nativeFilePath);
+                    // Don't groom the manifest file!
+                    if (this.isManifestFile(standardFilePath) == false) {
+                        this.ignoredFilesForGroom.push(nativeFilePath);
+                    }
+
+                    this.write(' [IGNORED]');
+
+                } else {
+
+                    this.fileCheckedCount++;
+
+                    let exception = undefined;
+
+                    if (this.doUpdate == true ||
+                        this.alwaysCheckHash == true ||
+                        this.trackMoves == true) {
+
+                        try {
+
+                            newManFile.hashType = Manifest.getDefaultHashMethod();
+                            newManFile.hashData = await this.computeFileHash(newManFile);
+    
+                        } catch (ex: any) {
+    
+                            exception = ex;
+                            this.writeLine(' [ERROR READING FILE DATA]');
+
                         }
 
-                        this.write(' [IGNORED]');
+                    }
+
+                    if (exception == undefined) {
+
+                        try {
+
+                            const newFileStat = fs.statSync(nativeFilePath);
+
+                            newManFile.length = newFileStat.size;
+                            newManFile.lastModifiedUtc = new Date(newFileStat.mtimeMs);
+
+                        } catch (ex: any) {
+    
+                            exception = ex;
+                            this.writeLine(' [ERROR GETTING FILE PROPERTIES]');
+
+                        }
+
+                    }
+
+                    if (exception != undefined) {
+
+                        if (exception != null) {
+
+                            this.writeLine(exception.toString());
+
+                        }
+
+                        this.errorFiles.push(newManFile);
 
                     } else {
 
-                        this.fileCheckedCount++;
+                        currentManifestDirectory.files.set(
+                            newManFile.name,
+                            newManFile);
 
-                        let exception = undefined;
+                        this.newFiles.push(newManFile);
+                        this.newFilesForGroom.push(nativeFilePath);
 
-                        if (this.doUpdate == true ||
-                            this.alwaysCheckHash == true ||
-                            this.trackMoves == true) {
-
-                            try {
-
-                                newManFile.hashType = Manifest.getDefaultHashMethod();
-                                newManFile.hashData = await this.computeFileHash(newManFile);
-        
-                            } catch (ex: any) {
-        
-                                exception = ex;
-                                this.writeLine(' [ERROR READING FILE DATA]');
-
-                            }
-
-                        }
-
-                        if (exception == undefined) {
-
-                            try {
-
-                                const newFileStat = fs.statSync(nativeFilePath);
-
-                                newManFile.length = newFileStat.size;
-                                newManFile.lastModifiedUtc = new Date(newFileStat.mtimeMs);
-
-                            } catch (ex: any) {
-        
-                                exception = ex;
-                                this.writeLine(' [ERROR GETTING FILE PROPERTIES]');
-
-                            }
-
-                        }
-
-                        if (exception != undefined) {
-
-                            if (exception != null) {
-
-                                this.writeLine(exception.toString());
-
-                            }
-
-                            this.errorFiles.push(newManFile);
-
-                        } else {
-
-                            currentManifestDirectory.files.set(
-                                newManFile.name,
-                                newManFile);
-
-                            this.newFiles.push(newManFile);
-                            this.newFilesForGroom.push(nativeFilePath);
-
-                            this.writeLine(" [NEW]");
-
-                        }
+                        this.writeLine(" [NEW]");
 
                     }
 
                 }
 
             }
+
+        }
+
+    }
+
+    protected async findNewSubdirectories(
+        currentManifestDirectory: ManifestDirectory,
+        dirSet: Set<string>) {
+
+        for (const nextDirName of dirSet) {
+			
+			if (currentManifestDirectory.subdirectories.has(
+				nextDirName) == false) {
+
+				const nextManDir = new ManifestDirectory(
+                    nextDirName,
+                    currentManifestDirectory);
+			
+				currentManifestDirectory.subdirectories.set(
+                    nextDirName,
+                    nextManDir);
+			
+				await this.updateRecursive(
+					Manifest.makeNativeDirectoryPathString(nextManDir),
+					nextManDir);
+			
+				if (nextManDir.isEmpty()) {
+
+					currentManifestDirectory.subdirectories.delete(
+						nextDirName);
+
+				}
+
+			}
+
+		}
 
     }
 
