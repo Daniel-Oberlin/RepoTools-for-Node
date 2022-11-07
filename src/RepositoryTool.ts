@@ -13,7 +13,7 @@ export default class RepositoryTool {
     public alwaysCheckHash: boolean = false;
     public makeNewHash: boolean = false;
     public backDate: boolean = false;
-    public trackMoves: boolean = false;
+    public trackMoves: boolean = true;
 
     public fileCheckedCount: number = 0;
 
@@ -24,12 +24,12 @@ export default class RepositoryTool {
     public errorFiles: ManifestFile[] = [];
     public ignoredFiles: ManifestFile[] = [];
     public newlyIgnoredFiles: ManifestFile[] = [];
+    public movedFiles: Map<string, [oldFiles: ManifestFile[], newFiles: ManifestFile[]]> = new Map();
+    public movedFileOrder: string[] = [];
 
     protected manifest: Manifest;
 
     /*
-    movedFiles = new HashMap<FileHash,MovedFileSet>();
-    movedFileOrder = new ArrayList<FileHash>();
     duplicateFiles = new HashMap<FileHash, ArrayList<ManifestFileInfo>>();
     */
 
@@ -68,12 +68,13 @@ export default class RepositoryTool {
 
         await this.updateRecursive('.', this.manifest.rootDirectory);
 
-        /*
-        if (trackMoves == true)
-		{
-			doTrackMoves();
+        if (this.trackMoves == true) {
+
+			this.doTrackMoves();
+
 		}
 		
+        /*
 		if (trackDuplicates == true)
 		{
 			doTrackDuplicates();
@@ -458,7 +459,7 @@ export default class RepositoryTool {
                         this.newFiles.push(newManFile);
                         this.newFilesForGroom.push(nativeFilePath);
 
-                        this.writeLine(" [NEW]");
+                        this.writeLine(' [NEW]');
 
                     }
 
@@ -501,6 +502,66 @@ export default class RepositoryTool {
 			}
 
 		}
+
+    }
+
+    protected doTrackMoves() {
+
+        // Map of file hash to lists of missing and new files with that hash
+        const missingFilesMap = this.hashFilesMapHelper(this.missingFiles);
+        const newFilesMap = this.hashFilesMapHelper(this.newFiles);
+
+		for (const checkMissingFile of this.missingFiles) {
+
+            const hash = checkMissingFile.hashData;
+            const missingFiles = missingFilesMap.get(hash);
+            const newFiles = newFilesMap.get(hash);
+
+            // Do this way for typescript
+			if (this.movedFiles.has(hash) == false &&
+                missingFiles != undefined &&
+                newFiles != undefined) {
+                    
+                this.movedFiles.set(hash, [missingFiles, newFiles]);
+                this.movedFileOrder.push(hash);
+                
+            }
+
+        }
+
+        this.missingFiles = this.missingFiles.filter(
+            file => !this.movedFiles.has(file.hashData));
+
+        this.newFiles = this.newFiles.filter(
+            file => !this.movedFiles.has(file.hashData));
+
+        this.newFilesForGroom = [];
+        this.newFiles.map(
+            file => this.newFilesForGroom.push(
+                Manifest.makeNativeFilePathString(file)));
+
+    }
+
+    protected hashFilesMapHelper(fileList: ManifestFile[]): Map<string, ManifestFile[]> {
+
+        let filesMap = new Map<string, ManifestFile[]>();
+
+        for (const checkFile of fileList) {
+
+            const tryFilesList = filesMap.get(checkFile.hashData);
+            const filesList = tryFilesList != undefined ? tryFilesList : [];
+
+            if (tryFilesList == undefined) {
+                
+                filesMap.set(checkFile.hashData, filesList);
+
+            }
+
+            filesList.push(checkFile);
+
+        }
+
+        return filesMap;
 
     }
 
