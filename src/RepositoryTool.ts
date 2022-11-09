@@ -135,11 +135,10 @@ export default class RepositoryTool {
 
                 }
                 
-                // TODO: Consider removing files in and below this directory
-                // from the manifest like we do for other kinds of missing
-                // files.  Implement gatherRecursive method.
-
+                // No point in going further
+                this.gatherFilesRecursive(this.errorFiles, currentManifestDirectory);
                 return;
+
             }
 
             let nextDirEnt: fs.Dirent | null = null;
@@ -338,14 +337,20 @@ export default class RepositoryTool {
                     nextManDir);
 
             }
-                
-            if (nextManDir.isEmpty() || dirExists == false) {
+            
+            if (!dirExists) {
+
+                const dirPath = Manifest.makeStandardDirectoryPathString(nextManDir);
+                this.writeLine(`${dirPath} [MISSING DIRECTORY]`);
+                this.gatherFilesRecursive(this.missingFiles, nextManDir);
+                nextManDir.files = new Map();
+                nextManDir.subdirectories = new Map();
+
+            }
+            
+            if (nextManDir.isEmpty()) {
 
                 currentManifestDirectory.subdirectories.delete(name);
-
-                // TODO: Address the fact that missingFiles isn't updated
-                // do we need to be tracking missingFiles for this?
-                // Add gatherRecursive?
 
             }
 
@@ -500,7 +505,7 @@ export default class RepositoryTool {
         this.hashFilesMapHelper(this.missingFiles, missingFilesMap);
 
         const newFilesMap = new Map<string, ManifestFile[]>();
-        this.hashFilesMapHelper(this.newFiles, missingFilesMap);
+        this.hashFilesMapHelper(this.newFiles, newFilesMap);
 
 		for (const checkMissingFile of this.missingFiles) {
 
@@ -553,15 +558,12 @@ export default class RepositoryTool {
 
     protected trackDuplicatesRecursive(
         currentDirectory: ManifestDirectory,
-        filesByHash: Map<string, ManifestFile[]>)
-    {
+        filesByHash: Map<string, ManifestFile[]>) {
+
         this.hashFilesMapHelper(currentDirectory.files.values(), filesByHash);
 
-        for (const checkDirectory of currentDirectory.subdirectories.values()) {
-
-            this.trackDuplicatesRecursive(checkDirectory, filesByHash);
-
-        }
+        Array.from(currentDirectory.subdirectories.values()).map(
+            nextDirectory => this.trackDuplicatesRecursive(nextDirectory, filesByHash));
 
     }
 
@@ -577,6 +579,17 @@ export default class RepositoryTool {
             filesList.push(checkFile);
 
         }
+
+    }
+
+    protected gatherFilesRecursive(
+        fileList: ManifestFile[],
+        currentDirectory: ManifestDirectory) {
+
+        fileList.push(...Array.from(currentDirectory.files.values()));
+
+        Array.from(currentDirectory.subdirectories.values()).map(
+            nextDirectory => this.gatherFilesRecursive(fileList, nextDirectory));
 
     }
 
