@@ -8,15 +8,18 @@ import ManifestFile from './ManifestFile.js';
 
 export default class RepositoryTool {
 
+    protected manifest: Manifest;
+
+    // Update options
     public showProgress: boolean = true;
     public doUpdate: boolean = false;
     public alwaysCheckHash: boolean = false;
     public makeNewHash: boolean = false;
     public backDate: boolean = false;
     public trackMoves: boolean = true;
+    public trackDuplicates: boolean = true;
 
-    public fileCheckedCount: number = 0;
-
+    // Collections
     public newFiles: ManifestFile[] = [];
     public changedFiles: ManifestFile[] = [];
     public missingFiles: ManifestFile[] = [];
@@ -26,15 +29,12 @@ export default class RepositoryTool {
     public newlyIgnoredFiles: ManifestFile[] = [];
     public movedFiles: Map<string, [oldFiles: ManifestFile[], newFiles: ManifestFile[]]> = new Map();
     public movedFileOrder: string[] = [];
-
-    protected manifest: Manifest;
-
-    /*
-    duplicateFiles = new HashMap<FileHash, ArrayList<ManifestFileInfo>>();
-    */
-
+    public duplicateFiles: Map<string, ManifestFile[]> = new Map();
     public newFilesForGroom: string[] = [];
     public ignoredFilesForGroom: string[] = [];
+
+    // Statistics
+    public fileCheckedCount: number = 0;
 
     constructor(manifest: Manifest) {
 
@@ -44,22 +44,20 @@ export default class RepositoryTool {
 
     public clear()
 	{
-		this.fileCheckedCount = 0;
-		
+        this.newFiles = [];
+        this.changedFiles = [];
+        this.missingFiles = [];
+        this.lastModifiedDateFiles = [];
+        this.errorFiles = [];
+        this.ignoredFiles = [];
         this.newlyIgnoredFiles = [];
-        /*
-		newFiles.clear();
-		newFilesForGroom.clear();
-		changedFiles.clear();
-		missingFiles.clear();
-		lastModifiedDateFiles.clear();
-		errorFiles.clear();
-		ignoredFiles.clear();
-		ignoredFilesForGroom.clear();
-		movedFiles.clear();
-		movedFileOrder.clear();
-		duplicateFiles.clear();
-        */
+        this.movedFiles = new Map();
+        this.movedFileOrder = [];
+        this.duplicateFiles = new Map();
+        this.newFilesForGroom = [];
+        this.ignoredFilesForGroom = [];
+
+        this.fileCheckedCount = 0;
 	}
 
     public async update() {
@@ -68,20 +66,10 @@ export default class RepositoryTool {
 
         await this.updateRecursive('.', this.manifest.rootDirectory);
 
-        if (this.trackMoves == true) {
-
-			this.doTrackMoves();
-
-		}
-		
-        /*
-		if (trackDuplicates == true)
-		{
-			doTrackDuplicates();
-		}
-		
-		manifest.setLastUpdateDateUtc(new Date());
-        */
+        this.trackMoves && this.doTrackMoves();
+        this.trackDuplicates && this.doTrackDuplicates();
+	
+        this.manifest.lastUpdateUtc = new Date();
 
     }
 
@@ -508,8 +496,11 @@ export default class RepositoryTool {
     protected doTrackMoves() {
 
         // Map of file hash to lists of missing and new files with that hash
-        const missingFilesMap = this.hashFilesMapHelper(this.missingFiles);
-        const newFilesMap = this.hashFilesMapHelper(this.newFiles);
+        const missingFilesMap =  new Map<string, ManifestFile[]>();
+        this.hashFilesMapHelper(this.missingFiles, missingFilesMap);
+
+        const newFilesMap = new Map<string, ManifestFile[]>();
+        this.hashFilesMapHelper(this.newFiles, missingFilesMap);
 
 		for (const checkMissingFile of this.missingFiles) {
 
@@ -517,7 +508,7 @@ export default class RepositoryTool {
             const missingFiles = missingFilesMap.get(hash);
             const newFiles = newFilesMap.get(hash);
 
-            // Do this way for typescript
+            // Do this way for TypeScript
 			if (this.movedFiles.has(hash) == false &&
                 missingFiles != undefined &&
                 newFiles != undefined) {
@@ -542,26 +533,50 @@ export default class RepositoryTool {
 
     }
 
-    protected hashFilesMapHelper(fileList: ManifestFile[]): Map<string, ManifestFile[]> {
+    protected doTrackDuplicates() {
 
-        let filesMap = new Map<string, ManifestFile[]>();
+        this.duplicateFiles = new Map();
+
+        const filesByHash = new Map<string, ManifestFile[]>();
+        this.trackDuplicatesRecursive(this.manifest.rootDirectory, filesByHash);
+
+        for (const [hash, files] of filesByHash) {
+
+            if (files.length > 1) {
+
+                this.duplicateFiles.set(hash, files);
+
+            }
+
+        }
+    }
+
+    protected trackDuplicatesRecursive(
+        currentDirectory: ManifestDirectory,
+        filesByHash: Map<string, ManifestFile[]>)
+    {
+        this.hashFilesMapHelper(currentDirectory.files.values(), filesByHash);
+
+        for (const checkDirectory of currentDirectory.subdirectories.values()) {
+
+            this.trackDuplicatesRecursive(checkDirectory, filesByHash);
+
+        }
+
+    }
+
+    protected hashFilesMapHelper(
+        fileList: Iterable<ManifestFile>,
+        filesMap:Map<string, ManifestFile[]>) {
 
         for (const checkFile of fileList) {
 
             const tryFilesList = filesMap.get(checkFile.hashData);
             const filesList = tryFilesList != undefined ? tryFilesList : [];
-
-            if (tryFilesList == undefined) {
-                
-                filesMap.set(checkFile.hashData, filesList);
-
-            }
-
+            tryFilesList == undefined && filesMap.set(checkFile.hashData, filesList);
             filesList.push(checkFile);
 
         }
-
-        return filesMap;
 
     }
 
