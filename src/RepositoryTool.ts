@@ -5,6 +5,7 @@ import { pipeline } from 'stream/promises';
 import Manifest from './Manifest.js';
 import ManifestDirectory from './ManifestDirectory.js';
 import ManifestFile from './ManifestFile.js';
+import { threadId } from 'worker_threads';
 
 export default class RepositoryTool {
 
@@ -33,8 +34,9 @@ export default class RepositoryTool {
     public newFilesForGroom: string[] = [];
     public ignoredFilesForGroom: string[] = [];
 
-    // Statistics
+    // Misc
     public fileCheckedCount: number = 0;
+    public alternateNativeManifestFilePath: string | undefined;
 
     constructor(manifest: Manifest) {
 
@@ -148,9 +150,9 @@ export default class RepositoryTool {
                 // .NET version because it is the default for that platform.
                 const normalizedName = nextDirEnt.name.normalize('NFC');
 
-                if (this.ignoreFile(normalizedName) == true) {
+                if (this.ignoreFile(normalizedName)) {
 
-                    this.writeLine(`${normalizedName} [IGNORED]`)
+                    this.writeLine(`${normalizedName} [IGNORED]`);
 
                 } else if (nextDirEnt.isFile()) {
 
@@ -195,7 +197,6 @@ export default class RepositoryTool {
                     currentManifestDirectory.files.delete(name);
                     this.newlyIgnoredFiles.push(nextManFile);
 
-                // TODO: consider putting conditional test logic into method
                 } else if (nextManFile.length != nextFileStat.size &&
                     this.doUpdate == false &&
                     this.alwaysCheckHash == false) {
@@ -205,16 +206,15 @@ export default class RepositoryTool {
                     this.write(' [DIFFERENT]');
                     this.changedFiles.push(nextManFile);
 
-                // TODO: consider putting conditional test logic into method
-                } else if (this.alwaysCheckHash == true ||
-					this.makeNewHash == true ||
+                } else if (this.alwaysCheckHash ||
+					this.makeNewHash ||
 					nextManFile.hashData == '' ||
 					Manifest.compareDatesWithTolerance(
                         new Date(nextFileStat.mtimeMs),
 						nextManFile.lastModifiedUtc) == false ||
 					nextFileStat.size != nextManFile.length) {
 
-                    // Compute the hash under these conditions
+                    // Do compute the hash under these conditions
 
                     let exception:any;
                     let checkHash:string = '';
@@ -385,11 +385,11 @@ export default class RepositoryTool {
                     this.ignoredFiles.push(newManFile);
 
                     // Don't groom the manifest file!
-                    if (this.isManifestFile(standardFilePath) == false) {
+                    if (this.isManifestFile(newManFile) == false) {
                         this.ignoredFilesForGroom.push(nativeFilePath);
                     }
 
-                    this.write(' [IGNORED]');
+                    this.writeLine(' [IGNORED]');
 
                 } else {
 
@@ -397,9 +397,7 @@ export default class RepositoryTool {
 
                     let exception = undefined;
 
-                    if (this.doUpdate == true ||
-                        this.alwaysCheckHash == true ||
-                        this.trackMoves == true) {
+                    if (this.doUpdate || this.alwaysCheckHash || this.trackMoves) {
 
                         try {
 
@@ -610,15 +608,27 @@ export default class RepositoryTool {
 
     protected ignoreFile(filename: string): boolean {
 
-        // TODO: fully implement
-        return filename == '.repositoryManifest';
+        for (const checkRegex of this.manifest.ignoreList) {
+
+            if (filename.match(checkRegex)) return true;
+
+        }
+
+        return false;
 
     }
 
-    protected isManifestFile(filename: string): boolean {
+    protected isManifestFile(manFile: ManifestFile): boolean {
 
-        // TODO: fully implement
-        return filename == '.repositoryManifest';
+        if (this.alternateNativeManifestFilePath != undefined &&
+            this.alternateNativeManifestFilePath == Manifest.makeNativeFilePathString(manFile)) {
+
+                return true;
+
+        }
+
+        return manFile.name == '.repositoryManifest' &&
+            manFile.parent == this.manifest.rootDirectory;
 
     }
 
