@@ -5,20 +5,19 @@ import { pipeline } from 'stream/promises';
 import Manifest from './Manifest.js';
 import ManifestDirectory from './ManifestDirectory.js';
 import ManifestFile from './ManifestFile.js';
-import { threadId } from 'worker_threads';
 
 export default class RepositoryTool {
 
-    protected manifest: Manifest;
+    public manifest: Manifest;
 
     // Update options
-    public showProgress: boolean = true;
+    public showProgress: boolean = false;
     public doUpdate: boolean = false;
     public alwaysCheckHash: boolean = false;
     public makeNewHash: boolean = false;
     public backDate: boolean = false;
-    public trackMoves: boolean = true;
-    public trackDuplicates: boolean = true;
+    public trackMoves: boolean = false;
+    public trackDuplicates: boolean = false;
 
     // Collections
     public newFiles: ManifestFile[] = [];
@@ -38,9 +37,17 @@ export default class RepositoryTool {
     public fileCheckedCount: number = 0;
     public alternateNativeManifestFilePath: string | undefined;
 
-    constructor(manifest: Manifest) {
+    constructor(manifest?: Manifest) {
 
-        this.manifest = manifest;
+        if (manifest != undefined) {
+
+            this.manifest = manifest;
+
+        } else {
+
+            this.manifest = new Manifest();
+
+        }
 
     }
 
