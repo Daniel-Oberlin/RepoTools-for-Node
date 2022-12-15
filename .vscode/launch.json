@@ -14,7 +14,8 @@
             "program": "${workspaceFolder}/dist/repotool.js",
             "cwd": "/Users/Daniel/scratch/node",
             "args": [
-                "status"
+                "validate",
+                "-dm"
             ]
         }
     ]
