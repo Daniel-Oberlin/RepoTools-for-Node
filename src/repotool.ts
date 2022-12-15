@@ -13,12 +13,21 @@ import RepositoryTool from './RepositoryTool.js';
 const args = yargs(hideBin(process.argv))
   .command('status', 'Check every file in the manifest based on file length and last modified date.  Check the hash values of modified files.  Report new files, missing files, and any differences.')
   .command('validate', 'Check every file in the manifest against its hash value.  Report newfiles, missing files, and any differences.')
+  .option('detail', {
+    alias: 'd',
+    type: 'boolean',
+    default: false,
+    description: 'List the actual files that are different - not just the counts.'})
   .option('showProgress', {
     alias: 'p',
     type: 'boolean',
     default: false,
-    description: 'List each file as it is being scanned.'
-  })
+    description: 'List each file as it is being scanned.'})
+  .option('trackMoves', {
+    alias: 'm',
+    type: 'boolean',
+    default: false,
+    description: 'Try to identify files that have been renamed or moved based on their hash values.'})
   .option('ignoreDate', {
     type: 'boolean',
     default: false,
@@ -38,6 +47,7 @@ let tool = new RepositoryTool(manifest);
 
 command == 'validate' && (tool.alwaysCheckHash = true);
 args.showProgress && (tool.showProgress = true);
+args.trackMoves && (tool.trackMoves = true);
 
 await tool.update();
 
@@ -47,13 +57,51 @@ different = reportFiles(tool.missingFiles, 'are missing') || different;
 different = reportFiles(tool.changedFiles, 'have changed content') || different;
 different = reportFiles(tool.newFiles, 'are new') || different;
 different = (reportFiles(tool.lastModifiedDateFiles, 'have last-modified dates which are different') && !args.ignoreDate) || different;
+different = reportMovedFiles(tool.movedFileOrder, tool.movedFiles) || different;
 
 function reportFiles(files: ManifestFile[], description:string ): boolean {
 
   if (files.length > 0) {
     console.log(`${files.length} files ${description}.`);
-    files.map( manFile => console.log(`   ${Manifest.makeStandardFilePathString(manFile)}`));
-    console.log('');
+
+    if (args.detail) {
+      files.map( manFile => console.log(`   ${Manifest.makeStandardFilePathString(manFile)}`));
+      console.log('');
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+function reportMovedFiles(
+  movedFileOrder: string[],
+  movedFiles: Map<string, [oldFiles: ManifestFile[], newFiles: ManifestFile[]]>): boolean {
+
+  if (movedFileOrder.length > 0) {
+    console.log(`${movedFiles.size} files were moved.`);
+
+    if (args.detail) {
+      movedFileOrder.map(movedFileKey => {
+
+        let files = movedFiles.get(movedFileKey);
+        if (files != undefined) {
+          let out = '   ';
+          let [oldFiles, newFiles] = files;
+
+          oldFiles.map(oldFile => out += `${Manifest.makeStandardFilePathString(oldFile)} `);
+          out += '->';
+          newFiles.map(newFile => out += ` ${Manifest.makeStandardFilePathString(newFile)}`);
+
+          console.log(out);
+        }
+
+      });
+
+      console.log();
+    }
+
     return true;
   }
 

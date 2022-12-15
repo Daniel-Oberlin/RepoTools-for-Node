@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "lib" : ["ES6"],
+        "lib" : ["ES2017"],
         "module": "ES2022",
         "outDir": "dist",
         "sourceMap": true,
